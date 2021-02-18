@@ -5,7 +5,7 @@ This app allows a user to track and save their budget. The data is stored using 
 
 ## How to Use
 <a name="How To"></a>
-To use, simply navigate to the site and start entering workouts! [Link](https://budgettracker-pwa-cw.herokuapp.com)
+To use, simply navigate to the site and start entering budget information! [Link](https://budgettracker-pwa-cw.herokuapp.com)
 
 ## Questions
 <a name="questions"></a>
