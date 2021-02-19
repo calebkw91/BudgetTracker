@@ -1,62 +1,101 @@
 let transactions = [];
 let myChart;
 
-const request = window.indexedDB.open("budgetSave", 1);
+let createDB = () => {
+    const request = window.indexedDB.open("budgetSave", 1);
 
-// Create schema
-request.onupgradeneeded = event => {
-    const db = event.target.result;
-
-    // Creates an object store with a listID keypath that can be used to query on.
-    const budgetSaveStore = db.createObjectStore("budgetSave", { keyPath: "id", autoIncrement: true });
-    // Creates a statusIndex that we can query on.
-    budgetSaveStore.createIndex("nameIndex", "name", {unique: false});
-    budgetSaveStore.createIndex("ammountIndex", "value", {unique: false});
-    budgetSaveStore.createIndex("dateIndex", "date", {unique: false});
+    // Create schema
+    request.onupgradeneeded = event => {
+        const db = event.target.result;
+    
+        // Creates an object store with a listID keypath that can be used to query on.
+        const budgetSaveStore = db.createObjectStore("budgetSave", { keyPath: "id", autoIncrement: true });
+        // Creates a statusIndex that we can query on.
+        budgetSaveStore.createIndex("nameIndex", "name", {unique: false});
+        budgetSaveStore.createIndex("ammountIndex", "value", {unique: false});
+        budgetSaveStore.createIndex("dateIndex", "date", {unique: false});
+    }
 }
 
 let saveRecord = (data) => {
     // Opens a transaction, accesses the budgetSave objectStore and statusIndex.
     console.log("saving data offline");
     console.log(data);
-    const db = request.result;
-    const transaction = db.transaction(["budgetSave"], "readwrite");
-    const budgetSaveStore = transaction.objectStore("budgetSave");
-    //const statusIndex = budgetSaveStore.index("statusIndex");
-
-    // Adds data to our objectStore
-    console.log("auto" + budgetSaveStore.autoIncrement);
-    budgetSaveStore.add({ name: data.name, value: data.value, date: data.date });
-
-    // Return an item by keyPath
-    //   const getRequest = budgetSaveStore.get("1");
-    //   getRequest.onsuccess = () => {
-    //     console.log(getRequest.result);
-    //   };
-
-    // Return an item by index
-    //   const getRequestIdx = statusIndex.getAll("complete");
-    //   getRequestIdx.onsuccess = () => {
-    //     console.log(getRequestIdx.result); 
-    //   }; 
+    const request = window.indexedDB.open("budgetSave", 1);
+    request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction(["budgetSave"], "readwrite");
+        const budgetSaveStore = transaction.objectStore("budgetSave");
+        //const statusIndex = budgetSaveStore.index("statusIndex");
+    
+        // Adds data to our objectStore
+        budgetSaveStore.add({ name: data.name, value: data.value, date: data.date });
+    }
 }
 
 let getAllRecords = () => {
-    const db = request.result;
-    const transaction = db.transaction(["budgetSave"], "readwrite");
-    const budgetSaveStore = transaction.objectStore("budgetSave");
-    const getRequest = budgetSaveStore.getAll();
-
-    getRequest.onsuccess = () => {
-        console.log(getRequest.result[0]);
-        transactions.push(getRequest.result[0]);
-        console.log("2 " + JSON.stringify(transactions));
-
-        populateTotal();
-        populateTable();
-        populateChart();
+    const request = window.indexedDB.open("budgetSave", 1);
+    request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction(["budgetSave"], "readwrite");
+        const budgetSaveStore = transaction.objectStore("budgetSave");
+        const getRequest = budgetSaveStore.getAll();
+    
+        getRequest.onsuccess = () => {
+            transactions = transactions.concat(getRequest.result);
+            console.log("repopulate");
+            populateTotal();
+            populateTable();
+            populateChart();
+        }
     }
 }
+
+let sendLocalCache = () => {
+    const request = window.indexedDB.open("budgetSave", 1);
+    request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction(["budgetSave"], "readwrite");
+        const budgetSaveStore = transaction.objectStore("budgetSave");
+        const getRequest = budgetSaveStore.getAll();
+    
+        getRequest.onsuccess = () => {
+            getRequest.result.forEach(data => {
+    
+                let dataEntry = {
+                    name: data.name,
+                    value: data.value,
+                    date: data.date
+                }
+    
+                console.log(dataEntry);
+    
+                fetch("/api/transaction", {
+                    method: "POST",
+                    body: JSON.stringify(dataEntry),
+                    headers: {
+                        Accept: "application/json, text/plain, */*",
+                        "Content-Type": "application/json"
+                    }
+                })
+                    .then(response => {
+                        const deleteTransaction = db.transaction(["budgetSave"], "readwrite");
+                        const budgetSaveDelete = deleteTransaction.objectStore("budgetSave");
+                        budgetSaveDelete.delete(data.id);
+                        console.log("local data sent");
+                        return response.json();
+                    })
+                    .catch(err => {
+                        console.log("failed local send " + err);
+                    });
+            })
+        }
+    }
+}
+
+createDB();
+getAllRecords();
+sendLocalCache();
 
 fetch("/api/transaction")
     .then(response => {
@@ -64,9 +103,11 @@ fetch("/api/transaction")
     })
     .then(data => {
         // save db data on global variable
-        transactions = data;
-        console.log("1 " + JSON.stringify(transactions));
-        getAllRecords();
+        transactions = transactions.concat(data);
+
+        populateTotal();
+        populateTable();
+        populateChart();
     });
 
 function populateTotal() {
@@ -177,6 +218,7 @@ function sendTransaction(isAdding) {
         }
     })
         .then(response => {
+            sendLocalCache();
             return response.json();
         })
         .then(data => {
