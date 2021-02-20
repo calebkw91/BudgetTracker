@@ -48,7 +48,7 @@ self.addEventListener("activate", function (evt) {
 
 self.addEventListener('fetch', function (evt) {
     // If the fetch is an API call
-    if (evt.request.url.includes("/api/")) {
+    if (evt.request.url.includes("/api/transaction")) {
         console.log("[Service Worker] Fetch (data)", evt.request.url);
 
         // intercept the API call and add the data from the call to the DATA_CACHE
