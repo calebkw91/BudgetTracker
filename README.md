@@ -11,7 +11,7 @@ This app allows a user to track and save their budget. The data is stored using 
 
 ## Screenshot
 <a name="screenshot"></a>
-![screenshot](images/homepage_screenshot.png "Homepage Screenshot")
+![screenshot](images/screenshot.png "Homepage Screenshot")
 
 ## Usage
 <a name="usage"></a>
